@@ -18,34 +18,38 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Install SnowSQL
+      - name: Install Snowflake CLI
         run: |
-          curl -O https://sfc-repo.snowflakecomputing.com/snowsql/bootstrap/1.3/linux_x86_64/snowsql-1.3.1-linux_x86_64.bash
-          SNOWSQL_DEST=~/bin SNOWSQL_LOGIN_SHELL=~/.profile bash snowsql-1.3.1-linux_x86_64.bash
-          echo "$HOME/bin" >> $GITHUB_PATH
+          pip install snowflake-cli-labs
+
+      - name: Configure Snowflake connection
+        env:
+          SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
+          SNOWFLAKE_USER: ${{ secrets.SNOWFLAKE_USER }}
+          SNOWFLAKE_TOKEN: ${{ secrets.SNOWFLAKE_PROGRAMMATIC_ACCESS_TOKEN }}
+          SNOWFLAKE_ROLE: ${{ secrets.SNOWFLAKE_ROLE }}
+          SNOWFLAKE_WAREHOUSE: ${{ secrets.SNOWFLAKE_WAREHOUSE }}
+          SNOWFLAKE_DATABASE: ${{ secrets.SNOWFLAKE_DATABASE }}
+          SNOWFLAKE_SCHEMA: ${{ secrets.SNOWFLAKE_SCHEMA }}
+        run: |
+          mkdir -p ~/.snowflake
+          cat > ~/.snowflake/config.toml << TOML
+          [connections.default]
+          account = "${SNOWFLAKE_ACCOUNT}"
+          user = "${SNOWFLAKE_USER}"
+          authenticator = "PROGRAMMATIC_ACCESS_TOKEN"
+          token = "${SNOWFLAKE_TOKEN}"
+          role = "${SNOWFLAKE_ROLE}"
+          warehouse = "${SNOWFLAKE_WAREHOUSE}"
+          database = "${SNOWFLAKE_DATABASE}"
+          schema = "${SNOWFLAKE_SCHEMA}"
+          TOML
+          chmod 600 ~/.snowflake/config.toml
 
       - name: Refresh Snowflake Git Repository
-        env:
-          SNOWSQL_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
-          SNOWSQL_USER: ${{ secrets.SNOWFLAKE_USER }}
-          SNOWSQL_TOKEN: ${{ secrets.SNOWFLAKE_PROGRAMMATIC_ACCESS_TOKEN }}
-          SNOWSQL_AUTHENTICATOR: PROGRAMMATIC_ACCESS_TOKEN
-          SNOWSQL_ROLE: ${{ secrets.SNOWFLAKE_ROLE }}
-          SNOWSQL_WAREHOUSE: ${{ secrets.SNOWFLAKE_WAREHOUSE }}
-          SNOWSQL_DATABASE: ${{ secrets.SNOWFLAKE_DATABASE }}
-          SNOWSQL_SCHEMA: ${{ secrets.SNOWFLAKE_SCHEMA }}
         run: |
-          snowsql -q "ALTER GIT REPOSITORY SYNTHEA_DEMO.PATIENTS.ML_JOBS_GIT_REPO FETCH;"
+          snow sql -q "ALTER GIT REPOSITORY SYNTHEA_DEMO.PATIENTS.ML_JOBS_GIT_REPO FETCH;"
 
       - name: Verify files accessible
-        env:
-          SNOWSQL_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
-          SNOWSQL_USER: ${{ secrets.SNOWFLAKE_USER }}
-          SNOWSQL_TOKEN: ${{ secrets.SNOWFLAKE_PROGRAMMATIC_ACCESS_TOKEN }}
-          SNOWSQL_AUTHENTICATOR: PROGRAMMATIC_ACCESS_TOKEN
-          SNOWSQL_ROLE: ${{ secrets.SNOWFLAKE_ROLE }}
-          SNOWSQL_WAREHOUSE: ${{ secrets.SNOWFLAKE_WAREHOUSE }}
-          SNOWSQL_DATABASE: ${{ secrets.SNOWFLAKE_DATABASE }}
-          SNOWSQL_SCHEMA: ${{ secrets.SNOWFLAKE_SCHEMA }}
         run: |
-          snowsql -q "LIST @SYNTHEA_DEMO.PATIENTS.ML_JOBS_GIT_REPO/branches/main/ml_pipeline/;"
+          snow sql -q "LIST @SYNTHEA_DEMO.PATIENTS.ML_JOBS_GIT_REPO/branches/main/ml_pipeline/;"
