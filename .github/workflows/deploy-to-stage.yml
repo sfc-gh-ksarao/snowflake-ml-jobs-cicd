@@ -1,0 +1,55 @@
+# =============================================================================
+# Approach 1: Deploy ML pipeline code to Snowflake Internal Stage
+# Triggered on push to main — uploads ml_pipeline/*.py to @ML_CODE_STAGE
+# =============================================================================
+name: Deploy to Snowflake Stage
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'ml_pipeline/**'
+
+jobs:
+  deploy-to-stage:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install SnowSQL
+        run: |
+          curl -O https://sfc-repo.snowflakecomputing.com/snowsql/bootstrap/1.3/linux_x86_64/snowsql-1.3.1-linux_x86_64.bash
+          SNOWSQL_DEST=~/bin SNOWSQL_LOGIN_SHELL=~/.profile bash snowsql-1.3.1-linux_x86_64.bash
+          echo "$HOME/bin" >> $GITHUB_PATH
+
+      - name: Upload ML pipeline to stage
+        env:
+          SNOWSQL_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
+          SNOWSQL_USER: ${{ secrets.SNOWFLAKE_USER }}
+          SNOWSQL_TOKEN: ${{ secrets.SNOWFLAKE_PROGRAMMATIC_ACCESS_TOKEN }}
+          SNOWSQL_AUTHENTICATOR: PROGRAMMATIC_ACCESS_TOKEN
+          SNOWSQL_ROLE: ${{ secrets.SNOWFLAKE_ROLE }}
+          SNOWSQL_WAREHOUSE: ${{ secrets.SNOWFLAKE_WAREHOUSE }}
+          SNOWSQL_DATABASE: ${{ secrets.SNOWFLAKE_DATABASE }}
+          SNOWSQL_SCHEMA: ${{ secrets.SNOWFLAKE_SCHEMA }}
+        run: |
+          snowsql -q "
+            PUT file://ml_pipeline/build_training_set.py @SYNTHEA_DEMO.PATIENTS.ML_CODE_STAGE/ml_pipeline/ AUTO_COMPRESS=FALSE OVERWRITE=TRUE;
+            PUT file://ml_pipeline/train_and_evaluate.py @SYNTHEA_DEMO.PATIENTS.ML_CODE_STAGE/ml_pipeline/ AUTO_COMPRESS=FALSE OVERWRITE=TRUE;
+            PUT file://ml_pipeline/notify.py @SYNTHEA_DEMO.PATIENTS.ML_CODE_STAGE/ml_pipeline/ AUTO_COMPRESS=FALSE OVERWRITE=TRUE;
+            PUT file://ml_pipeline/deploy_dag.py @SYNTHEA_DEMO.PATIENTS.ML_CODE_STAGE/ml_pipeline/ AUTO_COMPRESS=FALSE OVERWRITE=TRUE;
+          "
+
+      - name: Verify upload
+        env:
+          SNOWSQL_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
+          SNOWSQL_USER: ${{ secrets.SNOWFLAKE_USER }}
+          SNOWSQL_TOKEN: ${{ secrets.SNOWFLAKE_PROGRAMMATIC_ACCESS_TOKEN }}
+          SNOWSQL_AUTHENTICATOR: PROGRAMMATIC_ACCESS_TOKEN
+          SNOWSQL_ROLE: ${{ secrets.SNOWFLAKE_ROLE }}
+          SNOWSQL_WAREHOUSE: ${{ secrets.SNOWFLAKE_WAREHOUSE }}
+          SNOWSQL_DATABASE: ${{ secrets.SNOWFLAKE_DATABASE }}
+          SNOWSQL_SCHEMA: ${{ secrets.SNOWFLAKE_SCHEMA }}
+        run: |
+          snowsql -q "LIST @SYNTHEA_DEMO.PATIENTS.ML_CODE_STAGE/ml_pipeline/;"

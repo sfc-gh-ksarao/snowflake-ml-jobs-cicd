@@ -1,0 +1,5 @@
+snowflake-ml-python>=1.9.2
+snowflake-snowpark-python
+xgboost
+scikit-learn
+pandas
