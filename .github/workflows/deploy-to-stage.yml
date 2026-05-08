@@ -5,10 +5,12 @@
 name: Deploy to Snowflake Stage
 
 on:
+  workflow_dispatch:
   push:
     branches: [main]
     paths:
       - 'ml_pipeline/**'
+      - '.github/workflows/deploy-to-stage.yml'
 
 jobs:
   deploy-to-stage:

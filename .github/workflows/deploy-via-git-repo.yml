@@ -6,10 +6,12 @@
 name: Refresh Git Integration
 
 on:
+  workflow_dispatch:
   push:
     branches: [main]
     paths:
       - 'ml_pipeline/**'
+      - '.github/workflows/deploy-via-git-repo.yml'
 
 jobs:
   refresh-git-repo:
