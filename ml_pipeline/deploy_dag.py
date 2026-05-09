@@ -36,6 +36,9 @@ GIT_SOURCE = f"@{DB_SCHEMA}.ML_JOBS_GIT_REPO/branches/main/ml_pipeline"
 
 def deploy(source_mode: str):
     session = Session.builder.getOrCreate()
+    session.use_database(DB)
+    session.use_schema(SCHEMA)
+    session.use_warehouse("COMPUTE_WH")
 
     # Select source path based on deployment mode
     source_path = GIT_SOURCE if source_mode == "git" else STAGE_SOURCE

@@ -19,9 +19,9 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Install Snowflake CLI
+      - name: Install dependencies
         run: |
-          pip install snowflake-cli-labs
+          pip install snowflake-cli-labs snowflake-ml-python snowflake-snowpark-python
 
       - name: Configure Snowflake connection
         env:
@@ -57,3 +57,7 @@ jobs:
       - name: Verify upload
         run: |
           snow sql -q "LIST @SYNTHEA_DEMO.PATIENTS.ML_CODE_STAGE/ml_pipeline/;"
+
+      - name: Redeploy DAG (picks up new code from stage)
+        run: |
+          python ml_pipeline/deploy_dag.py --source stage
