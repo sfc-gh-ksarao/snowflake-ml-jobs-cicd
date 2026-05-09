@@ -19,14 +19,9 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Python 3.11
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      - name: Install dependencies
+      - name: Install Snowflake CLI
         run: |
-          pip install snowflake-cli-labs snowflake-ml-python snowflake-snowpark-python
+          pip install snowflake-cli-labs
 
       - name: Configure Snowflake connection
         env:
@@ -62,7 +57,3 @@ jobs:
       - name: Verify upload
         run: |
           snow sql -q "LIST @SYNTHEA_DEMO.PATIENTS.ML_CODE_STAGE/ml_pipeline/;"
-
-      - name: Redeploy DAG (picks up new code from stage)
-        run: |
-          python ml_pipeline/deploy_dag.py --source stage
