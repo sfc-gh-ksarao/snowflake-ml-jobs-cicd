@@ -38,7 +38,7 @@ def main():
     # Train XGBoost
     t0 = time.time()
     model = XGBClassifier(
-        n_estimators=300, max_depth=5, learning_rate=0.1, random_state=42
+        n_estimators=500, max_depth=6, learning_rate=0.05, random_state=42
     )
     model.fit(X_train, y_train)
     train_time = round(time.time() - t0, 2)
