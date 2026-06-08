@@ -1,6 +1,7 @@
 """
 Deploy the ML pipeline DAG to Snowflake.
 
+
 Uses MLJobDefinition.register() so that DAG tasks reference code on a stage
 (or Git repo) by path — not by serialized copy. This means CI/CD pushes to
 the stage are automatically picked up on the next DAG run without redeployment.
