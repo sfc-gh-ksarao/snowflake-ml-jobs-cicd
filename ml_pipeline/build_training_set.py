@@ -14,11 +14,6 @@ def main():
     # Drop previous training table if exists
     sess.sql("DROP TABLE IF EXISTS SYNTHEA_DEMO.PATIENTS.READMISSION_DAG_TRAINING").collect()
 
-
-
-
-    
-
     # Connect to Feature Store
     fs = FeatureStore(
         session=sess,
