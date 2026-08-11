@@ -15,7 +15,6 @@ import pandas as pd
 import time
 import json
 
-
 def main():
     sess = Session.builder.getOrCreate()
 
