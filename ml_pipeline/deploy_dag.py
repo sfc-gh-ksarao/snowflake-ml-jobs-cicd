@@ -15,6 +15,7 @@ Usage:
   python deploy_dag.py --source git
 """
 import argparse
+import os
 
 from snowflake.snowpark import Session
 from snowflake.core import Root
@@ -37,7 +38,16 @@ LOCAL_SOURCE = "ml_pipeline"
 
 
 def deploy(source_mode: str):
-    session = Session.builder.getOrCreate()
+    session = Session.builder.configs({
+        "account": os.environ["SNOWFLAKE_ACCOUNT"],
+        "user": os.environ["SNOWFLAKE_USER"],
+        "authenticator" : "PROGRAMMATIC_ACCESS_TOKEN",
+        "token": os.environ["SNOWFLAKE_PROGRAMMATIC_ACCESS_TOKEN"],
+        "role": os.environ.get("SNOWFLAKE_ROLE", "ACCOUNTADMIN"),
+        "warehouse": "COMPUTE_WH",
+        "database": DB,
+        "schema": SCHEMA,
+    }).create()
     session.use_database(DB)
     session.use_schema(SCHEMA)
     session.use_warehouse("COMPUTE_WH")
