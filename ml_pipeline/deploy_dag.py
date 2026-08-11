@@ -1,14 +1,15 @@
+# Deploy ML pipeline DAG to Snowflake using stored procedures and SQL-based task definitions.
+# Co-authored with CoCo
 """
 Deploy the ML pipeline DAG to Snowflake.
 
-
-Uses MLJobDefinition.register() so that DAG tasks reference code on a stage
-(or Git repo) by path — not by serialized copy. This means CI/CD pushes to
-the stage are automatically picked up on the next DAG run without redeployment.
+Registers MLJobDefinitions (uploads code to stage), creates stored procedures
+that submit jobs from stage at runtime, and assembles a DAG with SQL-based
+task definitions to avoid pickling issues.
 
 Supports two deployment modes:
-  --source stage  : DAG tasks read code from @ML_CODE_STAGE (uploaded via CI/CD PUT)
-  --source git    : DAG tasks read code from @ML_JOBS_GIT_REPO (Snowflake Git integration)
+  --source stage : Code uploaded via CI/CD PUT to @ML_CODE_STAGE
+  --source git   : Code from @ML_JOBS_GIT_REPO (Snowflake Git integration)
 
 Usage:
   python deploy_dag.py --source stage
@@ -16,6 +17,7 @@ Usage:
 """
 import argparse
 import os
+import builtins
 
 from snowflake.snowpark import Session
 from snowflake.core import Root
@@ -23,86 +25,98 @@ from snowflake.core._common import CreateMode
 from snowflake.core.task import Cron
 from snowflake.core.task.dagv1 import DAG, DAGTask, DAGOperation
 from snowflake.ml.jobs import MLJobDefinition
-import builtins
+
+# Fix: inject Session into builtins for type-hint resolution
 builtins.Session = Session
-
-
 
 DB = "SYNTHEA_DEMO"
 SCHEMA = "PATIENTS"
 DB_SCHEMA = f"{DB}.{SCHEMA}"
 COMPUTE_POOL = "DEMO_POOL"
 PAYLOAD_STAGE = f"{DB_SCHEMA}.ML_STAGE"
-
-# Stage paths for each deployment mode
-# STAGE_SOURCE = f"@{DB_SCHEMA}.ML_CODE_STAGE/ml_pipeline"
-# GIT_SOURCE = f"@{DB_SCHEMA}.ML_JOBS_GIT_REPO/branches/main/ml_pipeline"
-LOCAL_SOURCE = "ml_pipeline" 
+LOCAL_SOURCE = "ml_pipeline"
 
 
 def deploy(source_mode: str):
     session = Session.builder.configs({
         "account": os.environ["SNOWFLAKE_ACCOUNT"],
         "user": os.environ["SNOWFLAKE_USER"],
-        "authenticator" : "PROGRAMMATIC_ACCESS_TOKEN",
+        "authenticator": "PROGRAMMATIC_ACCESS_TOKEN",
         "token": os.environ["SNOWFLAKE_TOKEN"],
         "role": os.environ.get("SNOWFLAKE_ROLE", "ACCOUNTADMIN"),
         "warehouse": "COMPUTE_WH",
         "database": DB,
         "schema": SCHEMA,
     }).create()
-    session.use_database(DB)
-    session.use_schema(SCHEMA)
-    session.use_warehouse("COMPUTE_WH")
 
-    # Select source path based on deployment mode
     source_path = LOCAL_SOURCE
 
-    # Register ML Job definitions that reference code on stage/git by path.
-    # At DAG runtime, Snowflake reads the CURRENT version of these files.
-    build_training_set_job = MLJobDefinition.register(
-        source_path,
-        entrypoint="build_training_set.py",
-        compute_pool=COMPUTE_POOL,
-        stage_name=PAYLOAD_STAGE,
-        name="build_training_set",
-    )
+    # ─── Step 1: Register ML Job Definitions (uploads code to stage) ───
+    jobs = {
+        "build_training_set": "build_training_set.py",
+        "train_and_evaluate": "train_and_evaluate.py",
+        "notify": "notify.py",
+    }
 
-    train_and_evaluate_job = MLJobDefinition.register(
-        source_path,
-        entrypoint="train_and_evaluate.py",
-        compute_pool=COMPUTE_POOL,
-        stage_name=PAYLOAD_STAGE,
-        name="train_and_evaluate",
-    )
+    for name, entrypoint in jobs.items():
+        MLJobDefinition.register(
+            source_path,
+            entrypoint=entrypoint,
+            compute_pool=COMPUTE_POOL,
+            stage_name=PAYLOAD_STAGE,
+            name=name,
+        )
+        print(f"  Registered: {name}")
 
-    notify_job = MLJobDefinition.register(
-        source_path,
-        entrypoint="notify.py",
-        compute_pool=COMPUTE_POOL,
-        stage_name=PAYLOAD_STAGE,
-        name="notify",
+    # ─── Step 2: Create stored procedures that submit jobs at runtime ───
+    for name, entrypoint in jobs.items():
+        session.sql(f"""
+        CREATE OR REPLACE PROCEDURE {DB_SCHEMA}.run_{name}()
+        RETURNS STRING
+        LANGUAGE PYTHON
+        RUNTIME_VERSION = '3.11'
+        PACKAGES = ('snowflake-ml-python', 'snowflake-snowpark-python')
+        HANDLER = 'run'
+        EXECUTE AS CALLER
+        AS
+$$
+def run(session):
+    from snowflake.ml.jobs import submit_from_stage
+    job = submit_from_stage(
+        "@{PAYLOAD_STAGE}/{name}/app/",
+        "{COMPUTE_POOL}",
+        entrypoint="{entrypoint}",
+        stage_name="{PAYLOAD_STAGE}",
+        session=session,
     )
+    job.wait()
+    return str(job.status)
+$$
+        """).collect()
+        print(f"  Created procedure: run_{name}")
 
-    # Assemble the DAG
+    # ─── Step 3: Assemble DAG with SQL task definitions (no pickling) ───
     with DAG(
         "READMISSION_ML_PIPELINE",
         schedule=Cron("0 6 * * 1", "America/Los_Angeles"),
         stage_location=f"@{PAYLOAD_STAGE}",
         use_func_return_value=True,
     ) as dag:
-        t1 = DAGTask("BUILD_TRAINING_SET", definition=build_training_set_job)
-        t2 = DAGTask("TRAIN_AND_EVALUATE", definition=train_and_evaluate_job)
-        t3 = DAGTask("NOTIFY", definition=notify_job)
+        t1 = DAGTask("BUILD_TRAINING_SET", definition=f"CALL {DB_SCHEMA}.run_build_training_set()")
+        t2 = DAGTask("TRAIN_AND_EVALUATE", definition=f"CALL {DB_SCHEMA}.run_train_and_evaluate()")
+        t3 = DAGTask("NOTIFY", definition=f"CALL {DB_SCHEMA}.run_notify()")
+
         t1 >> t2 >> t3
 
-    # Deploy
+    # ─── Step 4: Deploy the DAG ───
     root = Root(session)
     dag_op = DAGOperation(root.databases[DB].schemas[SCHEMA])
     dag_op.deploy(dag, mode=CreateMode.or_replace)
-    print(f"DAG deployed to {DB_SCHEMA} (source: {source_mode})")
-    print(f"Code path: {source_path}")
-    print("Tasks will read code from stage at RUNTIME (not deploy time).")
+
+    print(f"\nDAG deployed to {DB_SCHEMA} (source: {source_mode})")
+    print(f"Tasks: BUILD_TRAINING_SET >> TRAIN_AND_EVALUATE >> NOTIFY")
+    print(f"Schedule: Every Monday at 6:00 AM PT")
+    print(f"Jobs read code from @{PAYLOAD_STAGE} at RUNTIME.")
 
     return dag, dag_op
 
