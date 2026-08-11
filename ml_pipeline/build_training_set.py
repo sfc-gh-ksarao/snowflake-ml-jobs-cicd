@@ -7,7 +7,6 @@ from snowflake.snowpark import Session
 from snowflake.ml.feature_store import FeatureStore
 from snowflake.core.task.context import TaskContext
 
-
 def main():
     sess = Session.builder.getOrCreate()
 
