@@ -59,5 +59,13 @@ jobs:
           snow sql -q "LIST @SYNTHEA_DEMO.PATIENTS.ML_CODE_STAGE/ml_pipeline/;"
           
       - name : Deploy DAG
+        env:
+            SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
+            SNOWFLAKE_USER: ${{ secrets.SNOWFLAKE_USER }}
+            SNOWFLAKE_TOKEN: ${{ secrets.SNOWFLAKE_PROGRAMMATIC_ACCESS_TOKEN }}
+            SNOWFLAKE_ROLE: ${{ secrets.SNOWFLAKE_ROLE }}
+            SNOWFLAKE_WAREHOUSE: ${{ secrets.SNOWFLAKE_WAREHOUSE }}
+            SNOWFLAKE_DATABASE: ${{ secrets.SNOWFLAKE_DATABASE }}
+            SNOWFLAKE_SCHEMA: ${{ secrets.SNOWFLAKE_SCHEMA }}
         run: |
           python ml_pipeline/deploy_dag.py
