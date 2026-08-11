@@ -23,8 +23,9 @@ from snowflake.core._common import CreateMode
 from snowflake.core.task import Cron
 from snowflake.core.task.dagv1 import DAG, DAGTask, DAGOperation
 from snowflake.ml.jobs import MLJobDefinition
-import snowflake.ml.jobs.job_definition as _jd_mod
-_jd_mod.Session = Session
+import builtins
+builtins.Session = Session
+
 
 
 DB = "SYNTHEA_DEMO"
