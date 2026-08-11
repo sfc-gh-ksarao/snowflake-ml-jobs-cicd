@@ -31,8 +31,9 @@ COMPUTE_POOL = "DEMO_POOL"
 PAYLOAD_STAGE = f"{DB_SCHEMA}.ML_STAGE"
 
 # Stage paths for each deployment mode
-STAGE_SOURCE = f"@{DB_SCHEMA}.ML_CODE_STAGE/ml_pipeline"
-GIT_SOURCE = f"@{DB_SCHEMA}.ML_JOBS_GIT_REPO/branches/main/ml_pipeline"
+# STAGE_SOURCE = f"@{DB_SCHEMA}.ML_CODE_STAGE/ml_pipeline"
+# GIT_SOURCE = f"@{DB_SCHEMA}.ML_JOBS_GIT_REPO/branches/main/ml_pipeline"
+LOCAL_SOURCE = "ml_pipeline" 
 
 
 def deploy(source_mode: str):
@@ -42,7 +43,7 @@ def deploy(source_mode: str):
     session.use_warehouse("COMPUTE_WH")
 
     # Select source path based on deployment mode
-    source_path = GIT_SOURCE if source_mode == "git" else STAGE_SOURCE
+    source_path = LOCAL_SOURCE
 
     # Register ML Job definitions that reference code on stage/git by path.
     # At DAG runtime, Snowflake reads the CURRENT version of these files.
