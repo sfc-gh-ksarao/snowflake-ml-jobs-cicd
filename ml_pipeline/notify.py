@@ -8,6 +8,8 @@ from snowflake.core.task.context import TaskContext
 import json
 
 
+
+
 def main():
     sess = Session.builder.getOrCreate()
     ctx = TaskContext(sess)
