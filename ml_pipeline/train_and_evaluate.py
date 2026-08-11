@@ -17,8 +17,6 @@ import json
 
 
 
-
-
 def main():
     sess = Session.builder.getOrCreate()
 
