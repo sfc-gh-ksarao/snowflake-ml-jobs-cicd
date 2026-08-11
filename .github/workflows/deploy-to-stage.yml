@@ -19,9 +19,9 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Install Snowflake CLI
+      - name: Install Snowflake CLI and Snowflake ML
         run: |
-          pip install snowflake-cli-labs
+          pip install snowflake-cli snowflake-ml-python
 
       - name: Configure Snowflake connection
         env:
