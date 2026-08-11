@@ -57,3 +57,7 @@ jobs:
       - name: Verify upload
         run: |
           snow sql -q "LIST @SYNTHEA_DEMO.PATIENTS.ML_CODE_STAGE/ml_pipeline/;"
+          
+      - name : Deploy DAG
+        run: |
+          python ml_pipeline/deploy_dag.py
