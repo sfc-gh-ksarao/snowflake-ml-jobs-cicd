@@ -10,7 +10,7 @@ import json
 
 
 
-def main():-> str:
+def main():
     sess = Session.builder.getOrCreate()
     ctx = TaskContext(sess)
 
