@@ -7,7 +7,7 @@ from snowflake.snowpark import Session
 from snowflake.ml.feature_store import FeatureStore
 from snowflake.core.task.context import TaskContext
 
-def main():
+def main(): -> str:
     sess = Session.builder.getOrCreate()
     sess.sql("USE WAREHOUSE COMPUTE_WH").collect()
     sess.sql("USE role accountadmin").collect()

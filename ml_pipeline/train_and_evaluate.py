@@ -17,7 +17,7 @@ import json
 
 
 
-def main():
+def main():-> str:
     sess = Session.builder.getOrCreate()
 
     # Load training data
