@@ -101,6 +101,7 @@ $$
         schedule=Cron("0 6 * * 1", "America/Los_Angeles"),
         stage_location=f"@{PAYLOAD_STAGE}",
         use_func_return_value=True,
+        warehouse="COMPUTE_WH",   
     ) as dag:
         t1 = DAGTask("BUILD_TRAINING_SET", definition=f"CALL {DB_SCHEMA}.run_build_training_set()")
         t2 = DAGTask("TRAIN_AND_EVALUATE", definition=f"CALL {DB_SCHEMA}.run_train_and_evaluate()")
