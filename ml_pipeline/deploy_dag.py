@@ -101,9 +101,9 @@ $$
     schedule=Cron("0 6 * * 1", "America/Los_Angeles"),
     stage_location=f"@{DB_SCHEMA}.PAYLOAD_STAGE",
     warehouse="COMPUTE_WH") as dag:
-        t1 = DAGTask("BUILD_TRAINING_SET", definition=build_training_set.to_sql())
-        t2 = DAGTask("TRAIN_AND_EVALUATE", definition=train_and_evaluate.to_sql())
-        t3 = DAGTask("NOTIFY", definition=notify.to_sql())
+        t1 = DAGTask("BUILD_TRAINING_SET", definition=f"CALL {DB_SCHEMA}.run_build_training_set()")
+        t2 = DAGTask("TRAIN_AND_EVALUATE", definition=f"CALL {DB_SCHEMA}.run_train_and_evaluate()")
+        t3 = DAGTask("NOTIFY", definition=f"CALL {DB_SCHEMA}.run_notify()")
         t1 >> t2 >> t3
 
     root = Root(session)
